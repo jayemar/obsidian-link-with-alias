@@ -4,6 +4,7 @@ import { locToEditorPositon, moveLoc } from "./PositionUtils";
 const linkPrefix = "[[";
 const linkSuffix = "]]";
 const displaTextSeparator = "|";
+const mdLinkPattern = /\[([^\]]*)\]\(([^)]*)\)/;
 
 /**
  * @param editor
@@ -14,6 +15,15 @@ export function getReferenceCacheFromEditor(editor: Editor, pos?: EditorPosition
 	if (!pos) pos = editor.getCursor();
 	const line = editor.getLine(pos.line);
 
+	// Try wiki link detection first (preserve existing behavior)
+	const wikiLink = detectWikiLink(line, pos);
+	if (wikiLink) return wikiLink;
+
+	// Try markdown link detection
+	return detectMarkdownLink(line, pos);
+}
+
+function detectWikiLink(line: string, pos: EditorPosition): ReferenceCache | undefined {
 	let posOffset = pos.ch;
 	if (line.substring(posOffset, posOffset + 2) == linkPrefix) {
 		//cursor is at the beginning of link
@@ -60,6 +70,51 @@ export function getReferenceCacheFromEditor(editor: Editor, pos?: EditorPosition
 		original,
 		//keep displayText undefined in case the link contains no display text, just link name
 		displayText: parts[1],
+	};
+}
+
+function detectMarkdownLink(line: string, pos: EditorPosition): ReferenceCache | undefined {
+	// Find markdown link pattern around cursor position
+	let startIdx = pos.ch;
+
+	// Search backwards for '['
+	while (startIdx > 0 && line.charAt(startIdx) !== '[') {
+		startIdx--;
+	}
+	if (startIdx < 0 || line.charAt(startIdx) !== '[') return undefined;
+
+	// Search forwards for complete pattern [text](url)
+	const remainingLine = line.substring(startIdx);
+	const match = remainingLine.match(mdLinkPattern);
+	if (!match) return undefined;
+
+	const endIdx = startIdx + match[0].length;
+
+	// Check if cursor is within this link
+	if (pos.ch < startIdx || pos.ch > endIdx) return undefined;
+
+	const displayText = match[1];
+	const link = match[2];
+
+	// Remove .md extension if present (Obsidian convention)
+	const cleanLink = link.endsWith('.md') ? link.slice(0, -3) : link;
+
+	return {
+		link: cleanLink,
+		position: {
+			start: {
+				col: startIdx,
+				line: pos.line,
+				offset: -1,
+			},
+			end: {
+				col: endIdx,
+				line: pos.line,
+				offset: -1,
+			},
+		},
+		original: match[0],
+		displayText: displayText || undefined,
 	};
 }
 
@@ -112,6 +167,10 @@ export function getLinkTextPosWithPipe(link: ReferenceCache): Pos {
 	};
 }
 
+function isMarkdownLink(link: ReferenceCache): boolean {
+	return link.original.startsWith('[') && link.original.includes('](');
+}
+
 /**
  * Sets the link text of `link` to be a `linkText`
  * @param link
@@ -119,10 +178,42 @@ export function getLinkTextPosWithPipe(link: ReferenceCache): Pos {
  * @param linkText
  */
 export function setLinkText(link: ReferenceCache, editor: Editor, linkText: string | undefined): void {
-	if (link.displayText !== linkText) {
-		//it was changed rollback the change now
-		const linkTextPos = getLinkTextPosWithPipe(link);
-		editor.replaceRange(linkText != null ? `|${linkText}` : "", locToEditorPositon(linkTextPos.start), locToEditorPositon(linkTextPos.end));
-		link.displayText = linkText;
+	if (link.displayText === linkText) return; // No change needed
+
+	if (isMarkdownLink(link)) {
+		// Handle markdown link: [text](url)
+		setMarkdownLinkText(link, editor, linkText);
+	} else {
+		// Handle wiki link: [[url|text]]
+		setWikiLinkText(link, editor, linkText);
 	}
+
+	link.displayText = linkText;
+}
+
+function setWikiLinkText(link: ReferenceCache, editor: Editor, linkText: string | undefined): void {
+	// Current implementation for wiki links
+	const linkTextPos = getLinkTextPosWithPipe(link);
+	editor.replaceRange(
+		linkText != null ? `|${linkText}` : "",
+		locToEditorPositon(linkTextPos.start),
+		locToEditorPositon(linkTextPos.end)
+	);
+}
+
+function setMarkdownLinkText(link: ReferenceCache, editor: Editor, linkText: string | undefined): void {
+	// For markdown links, we need to replace just the text part in [text](url)
+	const match = link.original.match(/\[([^\]]*)\]/);
+	if (!match) return;
+
+	const textStart = link.position.start.col + 1; // After '['
+	const textEnd = textStart + match[1].length;
+
+	const newText = linkText || '';
+
+	editor.replaceRange(
+		newText,
+		{ line: link.position.start.line, ch: textStart },
+		{ line: link.position.start.line, ch: textEnd }
+	);
 }

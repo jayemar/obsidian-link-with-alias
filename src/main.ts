@@ -124,6 +124,12 @@ export default class LinkWithAliasPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
+	private useMarkdownLinks(): boolean {
+		// Use private API to detect user preference for link format
+		// This is widely used by other plugins and stable
+		return (this.app.vault as any).getConfig("useMarkdownLinks") === true;
+	}
+
 	private getFileFromContext(ctx: MarkdownView | MarkdownFileInfo): TFile | undefined {
 		if (ctx.file) {
 			return ctx.file;
@@ -160,33 +166,63 @@ export default class LinkWithAliasPlugin extends Plugin {
 			return;
 		}
 		const selected_word = editor.getSelection();
+		const useMarkdown = this.useMarkdownLinks();
 		let linkStart;
 		let linkText;
 		if (selected_word == "") {
 			//nothing is selected, just create a new empty link
-			editor.replaceSelection(`[[]]`);
-			linkStart = moveEditorPosition(moveCursor(editor, -2), -2);
+			if (useMarkdown) {
+				editor.replaceSelection(`[]()`);
+				linkStart = moveEditorPosition(moveCursor(editor, -1), -2);
+			} else {
+				editor.replaceSelection(`[[]]`);
+				linkStart = moveEditorPosition(moveCursor(editor, -2), -2);
+			}
 		} else if (selected_word.indexOf("|") >= 0) {
 			const parts = selected_word.split("|");
 			if (parts.length > 2) {
 				return;
 			}
 			//selected text already contains a file name and display text
-			editor.replaceSelection(`[[${selected_word}]]`);
-			linkStart = moveEditorPosition(moveCursor(editor, -(parts[1].length + 3)), -(parts[0].length + 2));
-			linkText = parts[1];
+			if (useMarkdown) {
+				// Markdown: [text](file.md)
+				editor.replaceSelection(`[${parts[1]}](${parts[0]}.md)`);
+				linkStart = moveEditorPosition(moveCursor(editor, -(parts[0].length + 4)), -1);
+				linkText = parts[1];
+			} else {
+				// Wiki: [[file|text]]
+				editor.replaceSelection(`[[${selected_word}]]`);
+				linkStart = moveEditorPosition(moveCursor(editor, -(parts[1].length + 3)), -(parts[0].length + 2));
+				linkText = parts[1];
+			}
 		} else {
 			//text is selected
 			if (options.pathFromText) {
 				// use it as link target and also link display text
-				editor.replaceSelection(`[[${this.capitalizeOptionally(selected_word)}|${selected_word}]]`);
-				linkStart = moveEditorPosition(moveCursor(editor, -(selected_word.length + 3)), -(selected_word.length + 2));
-				linkText = selected_word;
+				if (useMarkdown) {
+					// Markdown: [text]() - empty link path initially
+					editor.replaceSelection(`[${selected_word}]()`);
+					linkStart = moveEditorPosition(moveCursor(editor, -1), -(selected_word.length + 3));
+					linkText = selected_word;
+				} else {
+					// Wiki: [[Text|text]]
+					editor.replaceSelection(`[[${this.capitalizeOptionally(selected_word)}|${selected_word}]]`);
+					linkStart = moveEditorPosition(moveCursor(editor, -(selected_word.length + 3)), -(selected_word.length + 2));
+					linkText = selected_word;
+				}
 			} else {
-				// use it as link target
-				editor.replaceSelection(`[[|${selected_word}]]`);
-				linkStart = moveEditorPosition(moveCursor(editor, -(selected_word.length + 3)), -2);
-				linkText = selected_word;
+				// use it as link display text
+				if (useMarkdown) {
+					// Markdown: [text]() - empty link path, user will fill it
+					editor.replaceSelection(`[${selected_word}]()`);
+					linkStart = moveEditorPosition(moveCursor(editor, -1), -(selected_word.length + 3));
+					linkText = selected_word;
+				} else {
+					// Wiki: [[|text]]
+					editor.replaceSelection(`[[|${selected_word}]]`);
+					linkStart = moveEditorPosition(moveCursor(editor, -(selected_word.length + 3)), -2);
+					linkText = selected_word;
+				}
 			}
 		}
 
@@ -228,13 +264,27 @@ export default class LinkWithAliasPlugin extends Plugin {
 		const cacheLink = getReferenceCacheFromEditor(editor, position);
 		if (cacheLink != null && cacheLink.position.start.col !== position.ch) {
 			//the cursor is inside the link, toggle display text
+			const isMarkdown = cacheLink.original.startsWith('[');
+
 			if (cacheLink.displayText == null) {
-				//add display text separator to open drop down menu
-				editor.setCursor({ line: cacheLink.position.end.line, ch: cacheLink.position.end.col - 2 });
-				editor.replaceSelection("|");
+				//add display text
+				if (isMarkdown) {
+					// For markdown, set display text to link name
+					setLinkText(cacheLink, editor, cacheLink.link);
+				} else {
+					// For wiki, add pipe separator to open dropdown
+					editor.setCursor({ line: cacheLink.position.end.line, ch: cacheLink.position.end.col - 2 });
+					editor.replaceSelection("|");
+				}
 			} else {
-				// delete display text from this link and keep just plain link
-				setLinkText(cacheLink, editor, undefined);
+				// delete display text from this link
+				if (isMarkdown) {
+					// For markdown, set display text to link name (same behavior as wiki)
+					setLinkText(cacheLink, editor, cacheLink.link);
+				} else {
+					// For wiki, delete display text and keep just plain link
+					setLinkText(cacheLink, editor, undefined);
+				}
 			}
 			return;
 		}
