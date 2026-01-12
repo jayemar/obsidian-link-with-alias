@@ -3,6 +3,7 @@ import { App, Editor, EditorPosition, MarkdownFileInfo, MarkdownView, Notice, Pl
 import { EditorCursorListener } from "./EditorCursorListener";
 import { addMissingAliasesIntoFile } from "./InjectAlias";
 import { Unregister } from "./ListenerRegistry";
+import { MarkdownLinkSuggest } from "./MarkdownLinkSuggest";
 import { getReferenceCacheFromEditor, removeLinkFormatting, setLinkText } from "./MarkdownUtils";
 import { equalsPosition, isEditorPositionInPos, moveCursor, moveEditorPosition } from "./PositionUtils";
 import { DEFAULT_SETTINGS, LinksSettingTab } from "./settings";
@@ -72,6 +73,7 @@ export default class LinkWithAliasPlugin extends Plugin {
 	editorCursorListener: EditorCursorListener;
 	linkInfo?: LinkInfo;
 	settings = DEFAULT_SETTINGS;
+	markdownLinkSuggest?: MarkdownLinkSuggest;
 
 	constructor(app: App, manifest: PluginManifest) {
 		super(app, manifest);
@@ -121,6 +123,10 @@ export default class LinkWithAliasPlugin extends Plugin {
 				this.unlinkAtCursor(this.getFileFromContext(ctx), editor, editor.getCursor());
 			},
 		});
+
+		// Register markdown link autocomplete suggester
+		this.markdownLinkSuggest = new MarkdownLinkSuggest(this.app);
+		this.registerEditorSuggest(this.markdownLinkSuggest);
 
 		this.addSettingTab(new LinksSettingTab(this.app, this));
 	}
