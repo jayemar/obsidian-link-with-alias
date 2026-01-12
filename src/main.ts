@@ -116,7 +116,7 @@ export default class LinkWithAliasPlugin extends Plugin {
 		this.addCommand({
 			id: "unlink",
 			name: "Unlink",
-			icon: "link-2-off",
+			icon: "unlink",
 			editorCallback: (editor: Editor, ctx) => {
 				this.unlinkAtCursor(this.getFileFromContext(ctx), editor, editor.getCursor());
 			},
