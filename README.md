@@ -10,7 +10,27 @@ This plugin implements these commands
 
 Both `Create link` commands assures that link display text is kept => isn't replaced by Obsidian link autocompletion.
 
+# Link Format Support
+
+This plugin supports **both wiki links and markdown links**, automatically adapting to your Obsidian settings:
+
+- **Wiki Links**: `[[target|display text]]` - Obsidian's native format
+- **Markdown Links**: `[display text](target.md)` - Standard markdown format
+
+The plugin automatically detects which format to use based on your Obsidian setting at **Settings -> Files & Links -> Use [[Wikilinks]]**. When this setting is disabled, the plugin creates markdown-style links instead.
+
+All three commands work seamlessly with both formats:
+- Creating new links respects your chosen format
+- Detecting existing links works for both formats
+- Toggling display text handles both formats appropriately
+
+**Note on Toggle Behavior**: Due to format differences, the "Toggle link display text" command behaves slightly differently:
+- **Wiki links**: Removes or adds the pipe separator and display text (`[[target|text]]` <-> `[[target]]`)
+- **Markdown links**: Changes display text between custom text and the link name (`[custom](target.md)` <-> `[target](target.md)`), since markdown links always require display text
+
 # Use cases
+
+**Note**: The examples below show wiki link format (`[[...]]`). If you have markdown links enabled in Obsidian settings, the plugin will use markdown format (`[...](...)`) instead, with identical functionality.
 
 ## Make link on existing text
 
@@ -57,6 +77,7 @@ B) or the link target is kept empty so you can immediatelly type in the target n
 
 -   The alias is added into front matter of the target note only when it isn't there yet
 -   The aliases are sorted from longest to shortest, so the Obsidian backlinks are detected correctly
+-   Markdown link support: The plugin works with both wiki links (`[[target|text]]`) and markdown links (`[text](target.md)`). The format used is determined by your Obsidian settings.
 -   The link autocompletion popup is the standard one provided by Obsidian. It sometime replaces the link text automaticaly, but it isn't wanted in this use case. The action "Create link with alias" will keep the link text exactly the same like it was before.
 
 ![Run command, press Enter, done](use-case4.gif)
