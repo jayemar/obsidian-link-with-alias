@@ -24,6 +24,8 @@ All three commands work seamlessly with both formats:
 - Detecting existing links works for both formats
 - Toggling display text handles both formats appropriately
 
+**Autocomplete for Markdown Links**: This plugin provides custom autocomplete when typing inside markdown link parentheses `[text]()`. When you start typing, suggestions will appear showing matching files from your vault. The autocomplete searches both file names and frontmatter aliases. Note: Obsidian only provides native autocomplete for wiki links - this plugin adds equivalent functionality for markdown links.
+
 **Note on Toggle Behavior**: Due to format differences, the "Toggle link display text" command behaves slightly differently:
 - **Wiki links**: Removes or adds the pipe separator and display text (`[[target|text]]` <-> `[[target]]`)
 - **Markdown links**: Changes display text between custom text and the link name (`[custom](target.md)` <-> `[target](target.md)`), since markdown links always require display text
@@ -77,8 +79,8 @@ B) or the link target is kept empty so you can immediatelly type in the target n
 
 -   The alias is added into front matter of the target note only when it isn't there yet
 -   The aliases are sorted from longest to shortest, so the Obsidian backlinks are detected correctly
--   Markdown link support: The plugin works with both wiki links (`[[target|text]]`) and markdown links (`[text](target.md)`). The format used is determined by your Obsidian settings.
--   The link autocompletion popup is the standard one provided by Obsidian. It sometime replaces the link text automaticaly, but it isn't wanted in this use case. The action "Create link with alias" will keep the link text exactly the same like it was before.
+-   Markdown link support: The plugin works with both wiki links (`[[target|text]]`) and markdown links (`[text](target.md)`). The format used is determined by your Obsidian settings. For markdown links, the plugin provides custom autocomplete that searches file names and aliases.
+-   The link autocompletion popup is the standard one provided by Obsidian for wiki links. For markdown links, the plugin provides its own autocomplete popup. Both will keep the link text exactly the same as it was before, even if Obsidian's autocomplete tries to replace it.
 
 ![Run command, press Enter, done](use-case4.gif)
 
