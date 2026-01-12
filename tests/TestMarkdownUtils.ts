@@ -1,5 +1,5 @@
 import { Editor, ReferenceCache } from "obsidian";
-import { getReferenceCacheFromEditor, setLinkText } from "../src/MarkdownUtils";
+import { getReferenceCacheFromEditor, setLinkText, removeLinkFormatting } from "../src/MarkdownUtils";
 
 describe("MarkdownUtils", () => {
 	it("getReferenceCacheFromEditor no display text", () => {
@@ -107,6 +107,61 @@ describe("MarkdownUtils", () => {
 		}
 		o++;
 	}
+
+	// Tests for removeLinkFormatting
+	it("remove wiki link with display text", () => {
+		const editor = createEditorWithCursor(0, 5, `[[target|display]]`);
+		const linkCache = getReferenceCacheFromEditor(editor);
+		if (linkCache == null) throw new Error("Link cache is missing");
+		const preservedText = removeLinkFormatting(linkCache, editor);
+		expect(editor.getLine(0)).toEqual("display");
+		expect(preservedText).toEqual("display");
+	});
+
+	it("remove wiki link without display text", () => {
+		const editor = createEditorWithCursor(0, 5, `[[target]]`);
+		const linkCache = getReferenceCacheFromEditor(editor);
+		if (linkCache == null) throw new Error("Link cache is missing");
+		const preservedText = removeLinkFormatting(linkCache, editor);
+		expect(editor.getLine(0)).toEqual("target");
+		expect(preservedText).toEqual("target");
+	});
+
+	it("remove markdown link", () => {
+		const editor = createEditorWithCursor(0, 5, `[display text](target.md)`);
+		const linkCache = getReferenceCacheFromEditor(editor);
+		if (linkCache == null) throw new Error("Link cache is missing");
+		const preservedText = removeLinkFormatting(linkCache, editor);
+		expect(editor.getLine(0)).toEqual("display text");
+		expect(preservedText).toEqual("display text");
+	});
+
+	it("remove link preserving surrounding text", () => {
+		const editor = createEditorWithCursor(0, 15, `some text [[target|display]] more text`);
+		const linkCache = getReferenceCacheFromEditor(editor);
+		if (linkCache == null) throw new Error("Link cache is missing");
+		const preservedText = removeLinkFormatting(linkCache, editor);
+		expect(editor.getLine(0)).toEqual("some text display more text");
+		expect(preservedText).toEqual("display");
+	});
+
+	it("remove wiki link with empty display text", () => {
+		const editor = createEditorWithCursor(0, 5, `[[target|]]`);
+		const linkCache = getReferenceCacheFromEditor(editor);
+		if (linkCache == null) throw new Error("Link cache is missing");
+		const preservedText = removeLinkFormatting(linkCache, editor);
+		expect(editor.getLine(0)).toEqual("target");
+		expect(preservedText).toEqual("target");
+	});
+
+	it("remove markdown link with surrounding text", () => {
+		const editor = createEditorWithCursor(0, 15, `prefix [text](link.md) suffix`);
+		const linkCache = getReferenceCacheFromEditor(editor);
+		if (linkCache == null) throw new Error("Link cache is missing");
+		const preservedText = removeLinkFormatting(linkCache, editor);
+		expect(editor.getLine(0)).toEqual("prefix text suffix");
+		expect(preservedText).toEqual("text");
+	});
 });
 
 function createEditorWithCursor(line: number, ch: number, lineText: string): Editor {

@@ -217,3 +217,23 @@ function setMarkdownLinkText(link: ReferenceCache, editor: Editor, linkText: str
 		{ line: link.position.start.line, ch: textEnd }
 	);
 }
+
+/**
+ * Removes link formatting from a link, preserving only the display text or link target
+ * @param link The link to unlink
+ * @param editor The editor instance
+ * @returns The preserved text (display text if exists, otherwise link target)
+ */
+export function removeLinkFormatting(link: ReferenceCache, editor: Editor): string {
+	// Determine what text to preserve (display text if exists, otherwise link target)
+	const preservedText = link.displayText || link.link;
+
+	// Replace the entire link with just the text
+	editor.replaceRange(
+		preservedText,
+		locToEditorPositon(link.position.start),
+		locToEditorPositon(link.position.end)
+	);
+
+	return preservedText;
+}

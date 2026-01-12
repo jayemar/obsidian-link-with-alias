@@ -1,9 +1,9 @@
-import { App, Editor, EditorPosition, MarkdownFileInfo, MarkdownView, Plugin, PluginManifest, ReferenceCache, TFile } from "obsidian";
+import { App, Editor, EditorPosition, MarkdownFileInfo, MarkdownView, Notice, Plugin, PluginManifest, ReferenceCache, TFile } from "obsidian";
 
 import { EditorCursorListener } from "./EditorCursorListener";
 import { addMissingAliasesIntoFile } from "./InjectAlias";
 import { Unregister } from "./ListenerRegistry";
-import { getReferenceCacheFromEditor, setLinkText } from "./MarkdownUtils";
+import { getReferenceCacheFromEditor, removeLinkFormatting, setLinkText } from "./MarkdownUtils";
 import { equalsPosition, isEditorPositionInPos, moveCursor, moveEditorPosition } from "./PositionUtils";
 import { DEFAULT_SETTINGS, LinksSettingTab } from "./settings";
 import { getTemplaterPlugin } from "./TemplaterIntegration";
@@ -110,6 +110,15 @@ export default class LinkWithAliasPlugin extends Plugin {
 			icon: "link-2",
 			editorCallback: (editor: Editor, ctx) => {
 				this.toggleLinkTextFromSelection(this.getFileFromContext(ctx), editor, editor.getCursor());
+			},
+		});
+
+		this.addCommand({
+			id: "unlink",
+			name: "Unlink",
+			icon: "link-2-off",
+			editorCallback: (editor: Editor, ctx) => {
+				this.unlinkAtCursor(this.getFileFromContext(ctx), editor, editor.getCursor());
 			},
 		});
 
@@ -288,6 +297,25 @@ export default class LinkWithAliasPlugin extends Plugin {
 			}
 			return;
 		}
+	}
+
+	private unlinkAtCursor(file: TFile | undefined, editor: Editor, position: EditorPosition): void {
+		const cacheLink = getReferenceCacheFromEditor(editor, position);
+
+		if (cacheLink == null) {
+			// No link found at cursor position
+			new Notice("No link found at cursor position");
+			return;
+		}
+
+		// Remove the link formatting, keeping the display text or link name
+		const preservedText = removeLinkFormatting(cacheLink, editor);
+
+		// Position cursor at the start of the preserved text
+		editor.setCursor({
+			line: cacheLink.position.start.line,
+			ch: cacheLink.position.start.col
+		});
 	}
 
 	/**

@@ -7,6 +7,7 @@ This plugin implements these commands
 -   Create link with alias - provides fast creation of link whose display text is added into aliases atribute in front matter of the target note.
 -   Create link - provides fast creation of link
 -   Toggle link display text - toggles display text (alias) of the just edited link.
+-   Unlink - removes link formatting while preserving the display text (or link target if no display text exists).
 
 Both `Create link` commands assures that link display text is kept => isn't replaced by Obsidian link autocompletion.
 
@@ -19,10 +20,11 @@ This plugin supports **both wiki links and markdown links**, automatically adapt
 
 The plugin automatically detects which format to use based on your Obsidian setting at **Settings -> Files & Links -> Use [[Wikilinks]]**. When this setting is disabled, the plugin creates markdown-style links instead.
 
-All three commands work seamlessly with both formats:
+All commands work seamlessly with both formats:
 - Creating new links respects your chosen format
 - Detecting existing links works for both formats
 - Toggling display text handles both formats appropriately
+- Unlinking works for both formats
 
 **Note on Toggle Behavior**: Due to format differences, the "Toggle link display text" command behaves slightly differently:
 - **Wiki links**: Removes or adds the pipe separator and display text (`[[target|text]]` <-> `[[target]]`)
@@ -64,6 +66,15 @@ User puts cursor into text and runs command "Create link with alias". It creates
 
 As long as rename of Note has to keep the text with link to note understandable, it is good idea to keep the link display text in the link. In such case the Note is renamed but link display text stays unchanged. That is wanted behavior in many cases.
 But in case you have just list of Notes, where you want to see current note name, then the link display text is not helpful. The "Toggle link display text" command is a fast way how to remove unwanted display text and to keep just plain link.
+
+## Unlink
+
+The "Unlink" command removes link formatting while preserving the visible text. Place your cursor anywhere within a link and run the command to convert:
+- `[[target|display text]]` → `display text`
+- `[[target]]` → `target`
+- `[display text](target.md)` → `display text`
+
+This is useful when you want to keep the text but no longer need the link reference. If no link is found at the cursor position, you'll see a notice message. The command is available in the command palette and can be pinned to your toolbar for quick access.
 
 # Settings
 
