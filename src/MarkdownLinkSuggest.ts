@@ -1,4 +1,4 @@
-import { App, Editor, EditorPosition, EditorSuggest, EditorSuggestContext, EditorSuggestTriggerInfo, TFile } from "obsidian";
+import { App, Editor, EditorPosition, EditorSuggest, EditorSuggestContext, EditorSuggestTriggerInfo, prepareFuzzySearch, TFile } from "obsidian";
 
 /**
  * Custom autocomplete for markdown links.
@@ -85,11 +85,11 @@ export class MarkdownLinkSuggest extends EditorSuggest<TFile> {
 	}
 
 	/**
-	 * Search vault for files matching the query.
+	 * Search vault for files matching the query using Obsidian's fuzzy matching.
 	 * Returns files sorted by relevance.
 	 */
 	getSuggestions(context: EditorSuggestContext): TFile[] {
-		const query = context.query.toLowerCase();
+		const query = context.query;
 		const allFiles = this.app.vault.getMarkdownFiles();
 
 		if (query.length === 0) {
@@ -97,51 +97,40 @@ export class MarkdownLinkSuggest extends EditorSuggest<TFile> {
 			return allFiles.slice(0, 50);
 		}
 
-		// Filter and rank files
+		// Use Obsidian's built-in fuzzy search
+		const fuzzy = prepareFuzzySearch(query);
+
+		// Filter and rank files using fuzzy matching
 		const matches: Array<{ file: TFile; score: number }> = [];
 
 		for (const file of allFiles) {
-			const fileName = file.basename.toLowerCase();
-			const filePath = file.path.toLowerCase();
+			let bestScore = -Infinity;
 
-			let score = 0;
+			// Match against filename (highest priority)
+			const fileNameResult = fuzzy(file.basename);
+			if (fileNameResult) {
+				bestScore = fileNameResult.score;
+			}
 
-			// Exact name match (highest priority)
-			if (fileName === query) {
-				score = 1000;
+			// Match against full path (lower priority)
+			const pathResult = fuzzy(file.path);
+			if (pathResult) {
+				// Path matches score lower than filename matches
+				bestScore = Math.max(bestScore, pathResult.score - 10);
 			}
-			// Name starts with query
-			else if (fileName.startsWith(query)) {
-				score = 500;
-			}
-			// Name contains query
-			else if (fileName.contains(query)) {
-				score = 250;
-			}
-			// Path contains query
-			else if (filePath.contains(query)) {
-				score = 100;
-			}
-			// Check aliases from frontmatter
-			else {
-				const aliases = this.getFileAliases(file);
-				for (const alias of aliases) {
-					const aliasLower = alias.toLowerCase();
-					if (aliasLower === query) {
-						score = 900;
-						break;
-					} else if (aliasLower.startsWith(query)) {
-						score = 400;
-						break;
-					} else if (aliasLower.contains(query)) {
-						score = 200;
-						break;
-					}
+
+			// Match against aliases
+			const aliases = this.getFileAliases(file);
+			for (const alias of aliases) {
+				const aliasResult = fuzzy(alias);
+				if (aliasResult) {
+					// Alias matches score slightly lower than filename
+					bestScore = Math.max(bestScore, aliasResult.score - 1);
 				}
 			}
 
-			if (score > 0) {
-				matches.push({ file, score });
+			if (bestScore > -Infinity) {
+				matches.push({ file, score: bestScore });
 			}
 		}
 
