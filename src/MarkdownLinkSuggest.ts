@@ -181,27 +181,41 @@ export class MarkdownLinkSuggest extends EditorSuggest<TFile> {
 
 	/**
 	 * Handle user selection.
-	 * Insert only the filename with extension (e.g., "note.md"), not the full path.
+	 * Generate a properly formatted markdown link using Obsidian's API.
 	 */
 	selectSuggestion(file: TFile, evt: MouseEvent | KeyboardEvent): void {
 		if (!this.context) return;
 
 		const editor = this.context.editor;
+		const line = editor.getLine(this.context.start.line);
 
-		// Insert only filename + extension (not full path)
-		const fileName = file.name; // This includes the .md extension
+		// Extract the display text from [text]()
+		const textStartIdx = line.lastIndexOf('[', this.context.start.ch - 2);
+		const textEndIdx = line.indexOf(']', textStartIdx);
+		const displayText = line.substring(textStartIdx + 1, textEndIdx);
 
-		// Replace the content between parentheses with the filename
-		editor.replaceRange(
-			fileName,
-			this.context.start,
-			this.context.end
+		// Get current file path for relative link calculation
+		const activeFile = this.app.workspace.getActiveFile();
+		const sourcePath = activeFile?.path ?? '';
+
+		// Generate proper markdown link with encoding
+		const markdownLink = this.app.fileManager.generateMarkdownLink(
+			file,
+			sourcePath,
+			undefined,
+			displayText || undefined
 		);
 
-		// Move cursor after the closing paren
+		// Replace the entire [text]() structure
+		const fullLinkStart = { line: this.context.start.line, ch: textStartIdx };
+		const fullLinkEnd = { line: this.context.end.line, ch: this.context.end.ch + 1 };
+
+		editor.replaceRange(markdownLink, fullLinkStart, fullLinkEnd);
+
+		// Position cursor after the link
 		const newCursorPos = {
 			line: this.context.start.line,
-			ch: this.context.start.ch + fileName.length + 1, // +1 for closing paren
+			ch: textStartIdx + markdownLink.length,
 		};
 		editor.setCursor(newCursorPos);
 	}

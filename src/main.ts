@@ -201,8 +201,21 @@ export default class LinkWithAliasPlugin extends Plugin {
 			//selected text already contains a file name and display text
 			if (useMarkdown) {
 				// Markdown: [text](file.md)
-				editor.replaceSelection(`[${parts[1]}](${parts[0]}.md)`);
-				linkStart = moveEditorPosition(moveCursor(editor, -(parts[0].length + 4)), -1);
+				const targetFile = this.app.metadataCache.getFirstLinkpathDest(parts[0], file?.path ?? '');
+				let linkPath: string;
+				if (targetFile) {
+					// Use generateMarkdownLink to get properly encoded link
+					const fullLink = this.app.fileManager.generateMarkdownLink(targetFile, file?.path ?? '', undefined, parts[1]);
+					editor.replaceSelection(fullLink);
+					// Extract link path length from generated link for cursor positioning
+					const pathMatch = fullLink.match(/\]\(([^)]*)\)/);
+					linkPath = pathMatch ? pathMatch[1] : parts[0] + '.md';
+				} else {
+					// File doesn't exist yet - encode path manually
+					linkPath = encodeURIComponent(parts[0]).replace(/%2F/g, '/') + '.md';
+					editor.replaceSelection(`[${parts[1]}](${linkPath})`);
+				}
+				linkStart = moveEditorPosition(moveCursor(editor, -(linkPath.length + 1)), -1);
 				linkText = parts[1];
 			} else {
 				// Wiki: [[file|text]]
